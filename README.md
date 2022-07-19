@@ -1,2 +1,3 @@
 # blog
-Simple Blog
+
+Simple Blog hosted on heroku https://koyto-blog.herokuapp.com/
