@@ -39,8 +39,17 @@ mongoose.connect(
 
 // SCHEMA
 const blogPostSchema = {
-  title: String,
-  body: String,
+  title: {
+    type: String,
+    required: true,
+    minlength: 3,
+    maxlength: 255,
+  },
+  body: {
+    type: String,
+    required: true,
+    minlength: 3,
+  },
 };
 
 // MODEL (collection)
@@ -121,6 +130,58 @@ app.get('/posts/:postName', function (req, res) {
     }
   });
 });
+
+/////////////////////////
+
+// API
+
+app
+  .route('/api/posts')
+  .get((req, res) => {
+    BlogPost.find({}, (err, postsDB) => {
+      if (err) {
+        // 400 bad request
+        res.status(400).send(err);
+      } else {
+        res.json(postsDB);
+      }
+    });
+  })
+  .post((req, res) => {
+    const post = new BlogPost({
+      title: req.body.title,
+      body: req.body.body,
+    });
+    post.save(err => {
+      if (err) {
+        // 400 bad request
+        res.status(400).send(err);
+      } else {
+        res.json({
+          message: 'Post saved successfully',
+          createdPost: post,
+        });
+      }
+    });
+  });
+
+// DELETE all articles
+// app.delete('/v.1/articles', function (req, res) {
+//   BlogPost.deleteMany({}, err => {
+//     if (err) {
+//       // error message 400 and show error
+//       res.status(400).json({
+//         error: err,
+//       });
+//     } else {
+//       res.json({
+//         message: 'All posts deleted',
+//       });
+//     }
+//   });
+// });
+
+/////////////////////////
 
 // SERVER CONFIG
 let port = process.env.PORT;
