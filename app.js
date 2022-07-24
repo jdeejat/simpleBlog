@@ -11,6 +11,8 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require('mongoose-findorcreate');
 
 // VARIABLES
 
@@ -76,9 +78,13 @@ const userAccountSchema = new mongoose.Schema({
   password: {
     type: String,
   },
+  googleId: {
+    type: String,
+  },
 });
 // add plugin to userAccountSchema to add a hashed password
 userAccountSchema.plugin(passportLocalMongoose);
+userAccountSchema.plugin(findOrCreate);
 
 // MODEL (collection)
 const BlogPost = mongoose.model('BlogPost', blogPostSchema);
@@ -93,8 +99,38 @@ https://www.npmjs.com/package/passport-local-mongoose
 passport.use(UserAccount.createStrategy());
 
 // use static serialize and deserialize of model for passport session support
-passport.serializeUser(UserAccount.serializeUser());
-passport.deserializeUser(UserAccount.deserializeUser());
+passport.serializeUser(function (user, cb) {
+  process.nextTick(function () {
+    return cb(null, {
+      id: user.id,
+      username: user.username,
+      picture: user.picture,
+    });
+  });
+});
+
+passport.deserializeUser(function (user, cb) {
+  process.nextTick(function () {
+    return cb(null, user);
+  });
+});
+
+//google strategy https://www.passportjs.org/packages/passport-google-oauth20/
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: 'http://localhost:3000/auth/google/callback',
+    },
+    function (accessToken, refreshToken, profile, cb) {
+      console.log(profile);
+      UserAccount.findOrCreate({ googleId: profile.id }, function (err, user) {
+        return cb(err, user);
+      });
+    }
+  )
+);
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -124,6 +160,21 @@ app.get('/about', function (req, res) {
     aboutContent: aboutContent,
   });
 });
+
+// google auth path
+app.get(
+  '/auth/google',
+  passport.authenticate('google', { scope: ['profile'] })
+);
+
+app.get(
+  '/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  function (req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/');
+  }
+);
 
 // Login page
 app.get('/login', function (req, res) {
