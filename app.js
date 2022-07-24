@@ -1,11 +1,16 @@
 //jshint esversion:6
 
 // IMPORTS
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const _ = require('lodash');
 const mongoose = require('mongoose');
+//STEP 1 for user authentication add three dependencies below + passport-local
+const session = require('express-session');
+const passport = require('passport');
+const passportLocalMongoose = require('passport-local-mongoose');
 
 // VARIABLES
 
@@ -23,22 +28,33 @@ const defaultPosts = [
 
 //APP
 const app = express();
-
 app.set('view engine', 'ejs');
-
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+//STEP 2 for user authentication add session and passport configuration below
+// needed to initialize session https://www.npmjs.com/package/express-session
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+// initialize passport
+/* 
+passport.session() acts as a middleware to alter the req object and change the 'user' value that is currently the session id (from the client cookie) into the true deserialized user object.
+https://stackoverflow.com/questions/22052258/what-does-passport-session-middleware-do/28994045#28994045
+ */
+app.use(passport.authenticate('session'));
+
 // SETUP MONGOOSE
 mongoose.connect(
-  'mongodb+srv://testUser:8EGBXEU2EuI6ZQWB@cluster0.4ioj6pf.mongodb.net/blogPostsDB',
-  {
-    useNewUrlParser: true,
-  }
+  `mongodb+srv://testUser:${process.env.MONGO_PASS}@cluster0.4ioj6pf.mongodb.net/blogPostsDB`
 );
 
 // SCHEMA
-const blogPostSchema = {
+const blogPostSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
@@ -50,10 +66,37 @@ const blogPostSchema = {
     required: true,
     minlength: 3,
   },
-};
+});
+
+// STEP 3 for user authentication create a new schema and add the passportLocalMongoose plugin to it
+const userAccountSchema = new mongoose.Schema({
+  username: {
+    type: String,
+  },
+  password: {
+    type: String,
+  },
+});
+// add plugin to userAccountSchema to add a hashed password
+userAccountSchema.plugin(passportLocalMongoose);
 
 // MODEL (collection)
 const BlogPost = mongoose.model('BlogPost', blogPostSchema);
+// STEP 4 for user authentication create a new model to store the user account data
+const UserAccount = mongoose.model('UserAccount', userAccountSchema);
+
+// STEP 5 for user authentication configure passport to use the UserAccount model with mongoose
+/*
+https://www.npmjs.com/package/passport-local-mongoose 
+*/
+// use static authenticate method of model in LocalStrategy
+passport.use(UserAccount.createStrategy());
+
+// use static serialize and deserialize of model for passport session support
+passport.serializeUser(UserAccount.serializeUser());
+passport.deserializeUser(UserAccount.deserializeUser());
+
+//////////////////////////////////////////////////////////////////////////////////////////////
 
 // ROUTES
 // Home page
@@ -82,16 +125,67 @@ app.get('/about', function (req, res) {
   });
 });
 
-// Contact page
-app.get('/contact', function (req, res) {
-  res.render('contact', {
-    contactContent: contactContent,
+// Login page
+app.get('/login', function (req, res) {
+  if (req.isAuthenticated()) {
+    res.redirect('/');
+  } else {
+    res.render('login');
+  }
+});
+
+app.post('/login', function (req, res) {
+  // STEP 9 for user authentication login the user
+  const user = new UserAccount({
+    username: req.body.username,
+    password: req.body.password,
   });
+  req.login(user, function (err) {
+    if (err) {
+      console.log(err);
+    } else {
+      passport.authenticate('local', { failureRedirect: '/login' })(
+        req,
+        res,
+        function () {
+          res.redirect('/');
+        }
+      );
+    }
+  });
+});
+
+// register page
+app.get('/register', function (req, res) {
+  res.render('register');
+});
+app.post('/register', function (req, res) {
+  // STEP 6 for user authentication create a new user account using passport-local-mongoose
+  UserAccount.register(
+    { username: req.body.username },
+    req.body.password,
+    function (err, user) {
+      if (err) {
+        console.log(err);
+        res.redirect('/register');
+      } else {
+        // STEP 7 for user authentication use passport to login the user
+        passport.authenticate('local')(req, res, function () {
+          res.redirect('/');
+        });
+      }
+    }
+  );
 });
 
 // compose page
 app.get('/compose', function (req, res) {
-  res.render('compose');
+  // STEP 8 for user authentication check if user is logged in
+  if (req.isAuthenticated()) {
+    res.render('compose');
+  } else {
+    res.redirect('/login');
+  }
 });
 
 // compose page post
