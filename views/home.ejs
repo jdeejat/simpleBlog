@@ -1,16 +1,19 @@
 <%- include('partials/header'); %>
-
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+  
 <!-- loop through posts array and render title as header and content as body -->
 <% posts.forEach(function(post) { %>
 <div class="col">
   <div class="card shadow-sm">
-    <svg class="bd-placeholder-img card-img-top" width="100%" height="225" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail" preserveAspectRatio="xMidYMid slice" focusable="false"><title><%= post.title %></title><rect width="100%" height="100%" fill="#55595c"></rect><text x="50%" y="50%" fill="#eceeef" dy=".3em">Thumbnail</text></svg>
+    <svg class="bd-placeholder-img card-img-top" width="100%" height="225" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail" preserveAspectRatio="xMidYMid slice" focusable="false"><title><%= post.title %></title><rect width="100%" height="100%" fill="#55595c"></rect><text x="50%" y="50%" fill="#eceeef" dy=".3em"><%= post.body.substring(0, 40) + '...' %></text></svg>
+    
+    
     
     <div class="card-body">
-      <p class="card-text"><%= post.body.substring(0, 100) + '...  ' %><a href="/posts/<%=post.title%>">more</a></p>
+      <p class="card-text"><%= post.title %></p>
       <div class="d-flex justify-content-between align-items-center">
         <div class="btn-group">
-          <button type="button" class="btn btn-sm btn-outline-secondary">View</button>
+          <a href="/posts/<%=post.title%>" type="button" class="btn btn-sm btn-outline-secondary">View</a>
           <button type="button" class="btn btn-sm btn-outline-secondary">Edit</button>
         </div>
         <small class="text-muted">9 mins</small>
@@ -20,4 +23,5 @@
 </div>
 <% }); %>
 
+</div>
 <%- include('partials/footer'); %>
